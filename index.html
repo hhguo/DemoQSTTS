@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>QS-TTS: Towards Semi-Supervised Text-to-Speech Synthesis via Vector-Quantized Self-Supervised \\ Speech Representation Learning</title>
+    <link rel="stylesheet" type="text/css" href="styles.css">
+    <script src="jquery-3.5.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <div id="text1">QS-TTS: Towards Semi-Supervised Text-to-Speech Synthesis via Vector-Quantized Self-Supervised Speech Representation Learning
+        </div>
+        <div id="intro">
+            <br>
+            <p>
+                Haohan Guo, Fenglong Xie, Jiawen Kang, Yujia Xiao, Xixin Wu, Helen Meng
+            </p>
+            <!-- <p>
+            [<a href="https://arxiv.org/abs/2104.00355">Paper</a>]
+        </p> -->
+        </div>
+    </div>
+    <div class="content-container">
+        <p>
+            This paper proposes a novel semi-supervised TTS framework, QS-TTS, to improve TTS quality with lower supervised data requirements via Vector-Quantized Self-Supervised Speech Representation Learning (VQ-S3RL) utilizing more unlabeled speech audio. This framework comprises two VQ-S3R learners: first, the principal learner aims to provide a generative Multi-Stage Multi-Codebook (MSMC) VQ-S3R via the MSMC-VQ-GAN combined with the contrastive S3RL, while decoding it back to the high-quality audio; then, the associate learner further abstracts the MSMC representation into a highly-compact VQ representation through a VQ-VAE. These two generative VQ-S3R learners provide profitable speech representations and pre-trained models for TTS, significantly improving synthesis quality with the lower requirement for supervised data. QS-TTS is evaluated comprehensively under various scenarios via subjective and objective tests in experiments. The results powerfully demonstrate the superior performance of QS-TTS, winning the highest MOS over supervised or semi-supervised baseline TTS approaches, especially in low-resource scenarios. Moreover, comparing various speech representations and transfer learning methods in TTS further validates the notable improvement of the proposed VQ-S3RL to TTS, showing the best audio quality and intelligibility metrics. The trend of slower decay in the synthesis quality of QS-TTS with decreasing supervised data further highlights its lower requirements for supervised data, indicating its great potential in low-resource scenarios.        </p>
+        <br />
+    </div>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+
+    <div class="content-container">
+        <div class="content-title">Samples</div>
+        <div id='descript'>
+        </div>
+        <div id='legend'>
+            <ul style="list-style-type:circle">
+            </ul>
+        </div>
+        <div class="option-div" id="tests-div">
+            <label for="tests">Choose test:</label>
+            <select id="tests" onchange=record(this)>
+                <option value="standard">Standard TTS</option>
+                <option value="lr">Low-Resource TTS</option>
+                <option value="ctts">Low-Resource Cantonese TTS</option>
+            </select>
+        </div>
+        <div id="result-div"></div>
+    </div>
+
+    <div id="loading-status">Loading......</div>
+
+    <script>
+        var mode = 0;
+        var audio;
+        var filename = null;
+        function play(file_name) {
+            if (filename !== file_name) {
+                if (audio) {
+                    audio.pause();
+                }
+
+                audio = new Audio(file_name);
+                filename = file_name;
+                audio.play();
+            } else {
+                if (audio.paused) {
+                    audio = new Audio(file_name);
+                    filename = file_name;
+                    audio.play();
+                } else {
+                    audio.pause();
+                }
+            }
+        }
+        function switchMode() {
+            if (document.getElementById("myonoffswitch").checked) {
+                mode = 0;
+            }
+            else {
+                mode = 1;
+            }
+        }
+    </script>
+
+    <script>
+        /* Highlights the navigation bar button corresponding to page
+        to indicate which page a user is currently viewing.
+        */
+        var dataset = "csmsc";
+        var tasks = "tts";
+        var tests = 'standard';
+
+        var tests_to_methods = {
+            "standard": ['recordings', 'fs', 'vits', 'msmc', 'qs'],
+            "lr": ['recordings', 'fs', 'vits', 'msmc', 'qs'],
+            "ctts": ['recordings', 'fs_ss', 'vits_ss', 'msmc', 'qs']
+        };
+
+        var method_to_hdr = {
+            "recordings": "Original Recordings",
+            "fs": "FastSpeech",
+            "fs_ss": "FastSpeech-SS",
+            "vits": "VITS",
+            "vits_ss": "VITS-SS",
+            "msmc": "MSMC-TTS",
+            "qs": "QS-TTS",
+        };
+
+        var id_list = [
+            ["000068", "图为凯姆博伊“斜线”冲刺。(tú wéi kǎi mǔ bó yī “xié xiàn ”chōng cì 。)"],
+            ["000509", "陈奕迅透露太太徐濠萦因忙于跑步，故未能出席捧场。(chén yì xùn tòu lù tài tài xú háo yíng yīn máng yú pǎo bù ，gù wèi néng chū xí pěng chǎng 。)"],
+            ["000528", "约翰逊与奥巴马交情匪浅。(yuē hàn xùn yǔ ào bā mǎ jiāo qíng fěi qiǎn 。)"],
+            ["000940", "烟也戒了，酒也戒了，人生没啥乐趣了。(yān yě jiè le ，jiǔ yě jiè le ，rén shēng méi shá lè qù le 。)"],
+            ["001993", "丈夫问：“我要有外遇了怎么办？(zhàng fū wèn ：“wǒ yào yǒu wài yù le zěn me bàn ？)"],
+            ["002053", "易感人群要尽量减少外出。(yì gǎn rén qún yào jìn liàng jiǎn shǎo wài chū 。)"],
+            ["002094", "总体项目预计在二零二二年之前完成。(zǒng tǐ xiàng mù yù jì zài èr líng èr èr nián zhī qián wán chéng 。)"],
+            ["002166", "与本网连线时地面仍在颤动。(yǔ běn wǎng lián xiàn shí dì miàn réng zài chàn dòng 。)"],
+            ["002296", "小家伙头部和屁股缠有绷带，两眼炯炯有神，正咂着奶瓶。(xiǎo jiā huǒ tóu bù hé pì gǔ chán yǒu bēng dài ，liǎng yǎn jiǒng jiǒng yǒu shén ，zhèng zā zhe nǎi píng 。)"],
+            ["003121", "他决定利用业余时间宣传脆骨病，让大家关注脆弱的“瓷娃娃”。(tā jué dìng lì yòng yè yú shí jiān xuān chuán cuì gǔ bìng ，ràng dà jiā guān zhù cuì ruò de “cí wá wá ”。)"],
+        ];
+
+        var id_list_c = [
+            ["F200286", "並處罰款人民幣五千元"],
+            ["F200431", "事後被送往醫院療傷"],
+            ["F200609", "他們變本加厲地玩這些把戲"],
+            ["F200757", "以過濾更多的尼古丁"],
+            ["F201419", "北約擴張，事在必行"],
+            ["F201606", "台灣鄧麗君文教基金會。"],
+            ["F201619", "各級政府一定要把關心和改善人民生活作為頭等大事。"],
+            ["F201764", "回家後好奇地問媽媽何解。"],
+            ["F201772", "因此為安全印刷賺上一筆。"],
+            ["F201849", "在日本及東南亞經濟疲態畢露下。"],
+        ]
+
+        // var root = 'https://dl.fbaipublicfiles.com/speechbot/demo_samples';
+        var root = './audio';
+
+        function lock() {
+            $('#dataset').attr('disabled', 'disabled');
+            $('#tasks').attr('disabled', 'disabled');
+            $('#tests').attr('disabled', 'disabled');
+            $('#loading-status').show();
+        }
+        function unlock() {
+            $('#dataset').removeAttr('disabled');
+            $('#tasks').removeAttr('disabled');
+            $('#tests').removeAttr('disabled');
+            $('#loading-status').hide();
+        }
+
+        function preload(dataset, tasks, tests, push) {
+            lock();
+            $('#tasks').val(tasks);
+            $('#tests').val(tests);
+            $("#result-div").empty();
+            $("#result-div").append(createTable());
+            unlock();
+        }
+
+        preload(dataset, tasks, tests, true);
+
+        function createTable() {
+            var tableElem;
+            tableElem = document.createElement('table');
+            if (tasks === 'tts') {
+                return tts(tableElem);
+            }
+        }
+
+        function tts(tableElem) {
+            var headline, colElem, rowElem;
+
+            headline = document.createElement('tr');
+
+            colElem = document.createElement('td');
+            colElem.appendChild(document.createTextNode('ID'));
+            colElem.style.color = 'rgb(6, 150, 200)';
+            colElem.style.center = true;
+            headline.appendChild(colElem);
+
+            colElem = document.createElement('td');
+            headline.appendChild(colElem);
+
+            methods = tests_to_methods[tests];
+            console.log(tests);
+            console.log(tests_to_methods);
+            console.log(methods);
+            for (var ii = 0; ii < methods.length; ii++) {
+                colElem = document.createElement('td');
+                colElem.appendChild(document.createTextNode(method_to_hdr[methods[ii]]));
+                colElem.style.color = 'rgb(6, 150, 200)';
+                colElem.style.center = true;
+                colElem.style.whiteSpace = 'pre';
+                headline.appendChild(colElem);
+            }
+
+            tableElem.appendChild(headline);
+
+            var bg_color = 'white';
+            var txt_color = 'rgb(6, 150, 200)';
+
+            var file_list = id_list;
+            var test_dataset = dataset;
+            if (tests == 'ctts') {
+                file_list = id_list_c;
+                test_dataset = 'cusent';
+            }
+
+            var N = file_list.length;
+            for (var j = 0; j < N; j++) {
+                rowElem = document.createElement('tr');
+                rowElem.style.backgroundColor = bg_color;
+
+                colElem = document.createElement('td');
+                colElem.appendChild(document.createTextNode(j.toString()));
+                colElem.style.color = txt_color;
+                colElem.style.center = true;
+                rowElem.appendChild(colElem);
+
+                colElem = document.createElement('td');
+                colElem.colSpan = (methods.length + 1).toString();
+                colElem.align = 'center';
+                colElem.appendChild(document.createTextNode(file_list[j][1]));
+                rowElem.appendChild(colElem);
+                
+                tableElem.appendChild(rowElem);
+
+                rowElem = document.createElement('tr');
+                colElem = document.createElement('td');
+                rowElem.appendChild(colElem);
+
+
+                colElem = document.createElement('td');
+                rowElem.appendChild(colElem);
+
+                for (var ii = 0; ii < methods.length; ii++) {
+                    colElem = document.createElement('td');
+                    audio_path = root + "/" + tasks + "/" + tests + "/"  + test_dataset + "/" + methods[ii] + "/" + file_list[j][0] + ".wav"
+                    audio_html = "<audio name=\"audio_" + (j * methods.length + ii).toString() + "\" controls=\"\"><source src=\"" + audio_path + "\" type=\"audio/mpeg\" /></audio>";
+                    colElem.innerHTML = audio_html;
+                    rowElem.appendChild(colElem);
+                }
+
+                tableElem.appendChild(rowElem);
+
+
+                rowElem = document.createElement('tr');
+                rowElem.style.backgroundColor = bg_color;
+
+                colElem = document.createElement('td');
+                colElem.appendChild(document.createTextNode("Transcript: "));
+                colElem.style.color = txt_color;
+                colElem.style.center = true;
+                rowElem.appendChild(colElem);
+
+                if ((j + 1) % 10 === 0) {
+                    flip = bg_color
+                    bg_color = txt_color;
+                    txt_color = flip;
+                }
+            }
+
+            return tableElem;
+        }
+
+        function fetch_result() {
+            $(window).ready(function () {
+                // dataset = $("#dataset").val();
+                
+                // tasks = $("#tasks").val();
+                // $("#tasks").empty();
+                // $("#tasks").append('<option value="resynthesis">Resynthesis</option>');
+                // $("#tasks").append('<option value="voice_conversion">Voice Conversion</option>');
+                // $("#tasks").append('<option value="codec">Codec (Unseen Speakers)</option>');
+                // $("#tasks").val(""tasks"");
+                
+                tests = $("#tests").val();
+                
+                $("#result-div").empty();
+                $("#result-div").append(createTable());
+                unlock();
+            });
+        }
+
+        function record(sel) {
+            lock();
+            fetch_result();
+        }
+
+        window.addEventListener('popstate', function (e) {
+            preload(e.state["dataset"], e.state["tasks"], e.state["tests"], false);
+        });
+    </script>
+
+    <div class="content-container">
+        Sample paged based on <a style="color:rgb(6, 150, 200)"
+            href="https://daps.cs.princeton.edu/projects/HiFi-GAN/index.php"> HiFi-GAN</a> page.
+    </div>
+</body>
+
+</html>
